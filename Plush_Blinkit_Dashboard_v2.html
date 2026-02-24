@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plush — Blinkit Search Ads Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#06060b;--surface:#0d0d14;--surface2:#14141f;--surface3:#1c1c2a;
+--border:#22223a;--border-light:#33335a;
+--text:#eaeaf2;--text-muted:#7a7a9a;--text-dim:#4a4a66;
+--accent:#00e6b8;--accent-dim:#00e6b815;--accent-med:#00e6b830;
+--red:#ff3d5a;--red-dim:#ff3d5a15;
+--amber:#ffb020;--amber-dim:#ffb02015;
+--blue:#3388ff;--blue-dim:#3388ff15;
+--purple:#9966ff;--purple-dim:#9966ff15;
+--brand-green:#00e6b8;--non-brand-orange:#ff8844;
+--font:'DM Sans',sans-serif;--mono:'JetBrains Mono',monospace;--display:'Outfit',sans-serif;
+--radius:10px;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::selection{background:var(--accent);color:var(--bg)}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px}
+.upload-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:32px;padding:40px;background:radial-gradient(ellipse at 50% 30%,#0a1a1a 0%,var(--bg) 70%)}
+.upload-screen h1{font-family:var(--display);font-size:38px;font-weight:700;letter-spacing:-1px}
+.upload-screen h1 span{color:var(--accent)}
+.upload-screen p{color:var(--text-muted);font-size:14px;max-width:440px;text-align:center;line-height:1.7}
+.drop-zone{width:500px;height:220px;border:2px dashed var(--border-light);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;transition:all .3s;background:var(--surface)}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:var(--accent-dim);box-shadow:0 0 40px var(--accent-dim)}
+.drop-zone svg{width:44px;height:44px;stroke:var(--text-muted);transition:all .3s}
+.drop-zone:hover svg{stroke:var(--accent)}
+.drop-zone span{color:var(--text-muted);font-size:14px}
+.drop-zone .ext{font-family:var(--mono);font-size:12px;color:var(--text-dim);background:var(--surface2);padding:4px 12px;border-radius:6px}
+.loading{display:none;flex-direction:column;align-items:center;gap:16px}
+.loading.active{display:flex}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.dashboard{display:none;min-height:100vh}
+.dashboard.active{display:block}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);background:rgba(13,13,20,0.92)}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.topbar-logo{font-family:var(--display);font-size:18px;font-weight:700;letter-spacing:-0.5px}
+.topbar-logo span{color:var(--accent)}
+.topbar-date{font-family:var(--mono);font-size:11px;color:var(--text-muted);background:var(--surface2);padding:5px 12px;border-radius:6px;border:1px solid var(--border)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-family:var(--font);transition:all .2s;font-weight:500}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.controls-bar{display:flex;align-items:center;gap:16px;padding:12px 28px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.control-group{display:flex;align-items:center;gap:8px}
+.control-group label{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+.control-group select,.control-group input[type="date"]{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;cursor:pointer}
+.control-group select:focus,.control-group input:focus{outline:none;border-color:var(--accent)}
+.control-group input[type="checkbox"]{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
+.control-sep{width:1px;height:28px;background:var(--border);margin:0 4px}
+.compare-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:0.5px}
+.compare-badge.b{background:var(--purple-dim);color:var(--purple)}
+.tab-bar{display:flex;gap:0;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{padding:11px 18px;font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none;padding:24px 28px 60px}
+.tab-content.active{display:block}
+.kpi-strip{display:grid;gap:14px;margin-bottom:24px}
+.kpi-strip.cols-5{grid-template-columns:repeat(5,1fr)}
+.kpi-strip.cols-6{grid-template-columns:repeat(6,1fr)}
+.kpi-strip.cols-4{grid-template-columns:repeat(4,1fr)}
+.kpi-strip.cols-3{grid-template-columns:repeat(3,1fr)}
+.kpi-strip.cols-2{grid-template-columns:repeat(2,1fr)}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s}
+.kpi-card:hover{border-color:var(--border-light)}
+.kpi-label{font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:0.8px;text-transform:uppercase}
+.kpi-value{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text);letter-spacing:-0.5px}
+.kpi-value.green{color:var(--accent)}
+.kpi-value.red{color:var(--red)}
+.kpi-value.amber{color:var(--amber)}
+.kpi-sub{font-size:11px;color:var(--text-dim)}
+.kpi-compare{display:flex;gap:8px;margin-top:2px;font-size:11px;font-family:var(--mono)}
+.kpi-compare .a{color:var(--accent)}
+.kpi-compare .b{color:var(--purple)}
+.kpi-delta{font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;display:inline-block}
+.kpi-delta.up{background:#00e6b818;color:var(--accent)}
+.kpi-delta.down{background:#ff3d5a18;color:var(--red)}
+.section{margin-bottom:28px}
+.section-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.section-title::before{content:'';width:3px;height:16px;background:var(--accent);border-radius:2px}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);max-height:600px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{position:sticky;top:0;background:var(--surface2);color:var(--text-muted);font-size:10px;font-weight:600;letter-spacing:0.6px;text-transform:uppercase;padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;z-index:2}
+thead th:first-child{text-align:left}
+tbody td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;white-space:nowrap}
+tbody td:first-child{text-align:left;font-family:var(--font);font-weight:500;color:var(--text)}
+tbody tr:hover{background:var(--surface2)}
+tbody tr:last-child td{border-bottom:none}
+.clickable-camp{cursor:pointer;color:var(--accent);text-decoration:none;border-bottom:1px dashed rgba(0,230,184,0.25)}
+.clickable-camp:hover{color:#fff;border-bottom-color:var(--accent)}
+.roas-good{color:var(--accent);font-weight:600}
+.roas-watch{color:var(--amber);font-weight:600}
+.roas-bleed{color:var(--red);font-weight:600}
+.tag-brand{background:var(--accent-dim);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.tag-nonbrand{background:rgba(255,136,68,0.08);color:var(--non-brand-orange);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.tag-comp{background:var(--red-dim);color:var(--red);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.tag-gen{background:var(--blue-dim);color:var(--blue);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.tag-mix{background:var(--purple-dim);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.total-row td{font-weight:700;background:var(--surface2);border-top:2px solid var(--border-light);position:sticky;bottom:0}
+.brand-comparison{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.brand-card{border-radius:var(--radius);padding:22px;border:1px solid}
+.brand-card.brand{background:var(--accent-dim);border-color:rgba(0,230,184,0.15)}
+.brand-card.nonbrand{background:rgba(255,136,68,0.06);border-color:rgba(255,136,68,0.15)}
+.brand-card-title{font-size:12px;font-weight:700;letter-spacing:0.5px;margin-bottom:14px;text-transform:uppercase}
+.brand-card.brand .brand-card-title{color:var(--accent)}
+.brand-card.nonbrand .brand-card-title{color:var(--non-brand-orange)}
+.brand-metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.brand-metric{display:flex;flex-direction:column;gap:2px}
+.brand-metric-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px}
+.brand-metric-value{font-family:var(--mono);font-size:16px;font-weight:600}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.chart-box.full{grid-column:1/-1}
+.chart-title{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+canvas{max-height:280px}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:950px;width:95%;max-height:80vh;overflow-y:auto;padding:28px;position:relative}
+.modal-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.modal-close:hover{border-color:var(--red);color:var(--red)}
+.modal h3{font-family:var(--display);font-size:18px;font-weight:600;margin-bottom:16px;padding-right:40px}
+.alert-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.alert-card{padding:14px;border-radius:var(--radius);border:1px solid;display:flex;flex-direction:column;gap:5px}
+.alert-card.kill{background:var(--red-dim);border-color:rgba(255,61,90,0.15)}
+.alert-card.scale{background:var(--accent-dim);border-color:rgba(0,230,184,0.15)}
+.alert-card.watch{background:var(--amber-dim);border-color:rgba(255,176,32,0.15)}
+.alert-type{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.alert-card.kill .alert-type{color:var(--red)}
+.alert-card.scale .alert-type{color:var(--accent)}
+.alert-card.watch .alert-type{color:var(--amber)}
+.alert-title{font-size:13px;font-weight:600}
+.alert-detail{font-size:11px;color:var(--text-muted);line-height:1.5}
+.alert-metric{font-family:var(--mono);font-size:11px;margin-top:2px}
+.month-upload-area{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.month-slot{border:2px dashed var(--border);border-radius:var(--radius);padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:all .3s;min-height:120px;text-align:center}
+.month-slot:hover{border-color:var(--accent);background:var(--accent-dim)}
+.month-slot.filled{border-style:solid;border-color:rgba(0,230,184,0.25);background:var(--accent-dim)}
+.month-slot .slot-label{font-size:12px;font-weight:600;color:var(--text-muted)}
+.month-slot .slot-file{font-size:11px;color:var(--accent);font-family:var(--mono)}
+.month-slot .slot-remove{font-size:10px;color:var(--red);cursor:pointer;margin-top:4px}
+.month-slot .slot-remove:hover{text-decoration:underline}
+@media(max-width:1200px){
+.kpi-strip.cols-5,.kpi-strip.cols-6{grid-template-columns:repeat(3,1fr)}
+.brand-comparison,.chart-grid,.alert-grid{grid-template-columns:1fr}
+.month-upload-area{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:768px){
+.kpi-strip.cols-5,.kpi-strip.cols-6,.kpi-strip.cols-4,.kpi-strip.cols-3{grid-template-columns:repeat(2,1fr)}
+.tab-bar{overflow-x:auto}
+.tab-content,.controls-bar{padding:14px}
+.month-upload-area{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="uploadScreen" class="upload-screen">
+  <h1>Plush <span>&times;</span> Blinkit</h1>
+  <p>Upload the daily Blinkit Search Report (.xlsx) to generate your performance dashboard with date filtering, comparison, and deep keyword insights.</p>
+  <div id="dropZone" class="drop-zone">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 16V4m0 0L8 8m4-4l4 4M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg>
+    <span>Drop your .xlsx here or click to browse</span>
+    <span class="ext">.xlsx only</span>
+  </div>
+  <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+  <div id="loading" class="loading"><div class="spinner"></div><span style="color:var(--text-muted);font-size:13px">Crunching numbers...</span></div>
+</div>
+
+<div id="dashboard" class="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">Plush <span>&times;</span> Blinkit</div>
+      <div class="topbar-date" id="dateRange"></div>
+    </div>
+    <div class="topbar-right"><button class="btn" id="btnNewUpload">&uarr; New Report</button></div>
+  </div>
+
+  <div class="controls-bar" id="controlsBar">
+    <div class="control-group"><label>View</label><select id="dateMode"><option value="all">All Days</option><option value="single">Single Day</option><option value="range">Date Range</option></select></div>
+    <div class="control-group" id="singleDateGroup" style="display:none"><label>Date</label><select id="singleDate"></select></div>
+    <div class="control-group" id="rangeFromGroup" style="display:none"><label>From</label><select id="rangeFrom"></select></div>
+    <div class="control-group" id="rangeToGroup" style="display:none"><label>To</label><select id="rangeTo"></select></div>
+    <div class="control-sep"></div>
+    <div class="control-group"><input type="checkbox" id="compareToggle"><label for="compareToggle" style="cursor:pointer">Compare</label></div>
+    <div class="control-group" id="compareDateGroup" style="display:none"><label><span class="compare-badge b">B</span></label><select id="compareDate"></select></div>
+    <div class="control-sep"></div>
+    <div class="control-group"><label>Search Type</label><select id="searchTypeFilter"><option value="all">All Searches</option><option value="branded">Branded Only</option><option value="nonbranded">Non-Branded Only</option><option value="competitor">Competitor Only</option><option value="generic">Generic Only</option></select></div>
+  </div>
+
+  <div class="tab-bar" id="tabBar">
+    <div class="tab active" data-tab="brandSplit">Brand vs Non-Brand</div>
+    <div class="tab" data-tab="campaigns">Campaign ROAS</div>
+    <div class="tab" data-tab="keywords">Top Keywords</div>
+    <div class="tab" data-tab="nonbranded">Non-Branded Deep Dive</div>
+    <div class="tab" data-tab="daily">Daily Trend</div>
+    <div class="tab" data-tab="category">Category Targeting</div>
+    <div class="tab" data-tab="prodRec">Product Reco</div>
+    <div class="tab" data-tab="mvp">MVP Insights</div>
+    <div class="tab" data-tab="claimables">MTD Claimables</div>
+    <div class="tab" data-tab="alerts">Alerts &amp; Actions</div>
+    <div class="tab" data-tab="multiMonth">Multi-Month</div>
+  </div>
+
+  <div class="tab-content active" id="tab-brandSplit"></div>
+  <div class="tab-content" id="tab-campaigns"></div>
+  <div class="tab-content" id="tab-keywords"></div>
+  <div class="tab-content" id="tab-nonbranded"></div>
+  <div class="tab-content" id="tab-daily"></div>
+  <div class="tab-content" id="tab-category"></div>
+  <div class="tab-content" id="tab-prodRec"></div>
+  <div class="tab-content" id="tab-mvp"></div>
+  <div class="tab-content" id="tab-claimables"></div>
+  <div class="tab-content" id="tab-alerts"></div>
+  <div class="tab-content" id="tab-multiMonth"></div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent">
+    <button class="modal-close" id="modalClose">&times;</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+const fmt={inr:v=>"\u20B9"+Math.round(v||0).toLocaleString("en-IN"),inrDec:v=>"\u20B9"+(v||0).toLocaleString("en-IN",{minimumFractionDigits:1,maximumFractionDigits:1}),num:v=>Math.round(v||0).toLocaleString("en-IN"),dec1:v=>(v||0).toFixed(1),pct:v=>((v||0)*100).toFixed(1)+"%",roas:v=>(v||0).toFixed(2)+"x",roasClass:v=>v>=2?"roas-good":v>=1?"roas-watch":"roas-bleed"};
+function safeDiv(a,b){return b>0?a/b:0}
+function groupBy(arr,key){return arr.reduce((acc,row)=>{const k=typeof key==="function"?key(row):row[key];if(!acc[k])acc[k]=[];acc[k].push(row);return acc},{})}
+function aggGroup(rows){return{spend:rows.reduce((s,r)=>s+(r["Estimated Budget Consumed"]||0),0),impressions:rows.reduce((s,r)=>s+(r["Impressions"]||0),0),directATC:rows.reduce((s,r)=>s+(r["Direct ATC"]||0),0),indirectATC:rows.reduce((s,r)=>s+(r["Indirect ATC"]||0),0),directQtySold:rows.reduce((s,r)=>s+(r["Direct Quantities Sold"]||0),0),indirectQtySold:rows.reduce((s,r)=>s+(r["Indirect Quantities Sold"]||0),0),directSales:rows.reduce((s,r)=>s+(r["Direct Sales"]||0),0),indirectSales:rows.reduce((s,r)=>s+(r["Indirect Sales"]||0),0),newUsers:rows.reduce((s,r)=>s+(r["New Users"]||0),0)}}
+function enrichAgg(a){a.totalSales=a.directSales+a.indirectSales;a.directROAS=safeDiv(a.directSales,a.spend);a.totalROAS=safeDiv(a.totalSales,a.spend);a.sellRate=safeDiv(a.directQtySold,a.directATC);a.costPerATC=safeDiv(a.spend,a.directATC);a.costPerNewUser=safeDiv(a.spend,a.newUsers);a.cpm=safeDiv(a.spend,a.impressions)*1000;return a}
+function isBrand(kw){return(kw||"").toLowerCase().includes("plush")}
+function getCampaignType(name){name=(name||"").toLowerCase();if(name.startsWith("brand_"))return"brand";if(name.startsWith("comp_"))return"competitor";if(name.startsWith("gen_"))return"generic";if(name.startsWith("mix_"))return"mix";return"other"}
+function getCampaignTag(name){const t=getCampaignType(name);const m={brand:"tag-brand",competitor:"tag-comp",generic:"tag-gen",mix:"tag-mix"};const l={brand:"BRAND",competitor:"COMP",generic:"GENERIC",mix:"MIX"};return'<span class="'+(m[t]||"tag-nonbrand")+'">'+(l[t]||t.toUpperCase())+"</span>"}
+function deltaHTML(a,b){if(!b||b===0)return"";const p=((a-b)/Math.abs(b))*100;return'<span class="kpi-delta '+(p>=0?"up":"down")+'">'+(p>=0?"+":"")+p.toFixed(1)+"%</span>"}
+function buildTable(headers,rows,totalAgg,totalRow,allowHTML){let h='<table><thead><tr>';headers.forEach(x=>h+='<th>'+x+'</th>');h+='</tr></thead><tbody>';rows.forEach(row=>{h+='<tr>';row.forEach(cell=>{if(typeof cell==="object"&&cell!==null&&cell.v!==undefined){h+='<td class="'+(cell.cls||'')+'">'+cell.v+'</td>'}else if(allowHTML&&typeof cell==="string"&&cell.includes("<")){h+='<td>'+cell+'</td>'}else{h+='<td>'+cell+'</td>'}});h+='</tr>'});if(totalRow){h+='<tr class="total-row">';totalRow.forEach(cell=>h+='<td>'+cell+'</td>');h+='</tr>'}h+='</tbody></table>';return h}
+
+const dropZone=document.getElementById("dropZone"),fileInput=document.getElementById("fileInput"),uploadScreen=document.getElementById("uploadScreen"),dashboardEl=document.getElementById("dashboard"),loading=document.getElementById("loading");
+dropZone.addEventListener("click",()=>fileInput.click());
+dropZone.addEventListener("dragover",e=>{e.preventDefault();dropZone.classList.add("dragover")});
+dropZone.addEventListener("dragleave",()=>dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop",e=>{e.preventDefault();dropZone.classList.remove("dragover");handleFile(e.dataTransfer.files[0])});
+fileInput.addEventListener("change",e=>{if(e.target.files[0])handleFile(e.target.files[0])});
+document.getElementById("btnNewUpload").addEventListener("click",()=>{dashboardEl.classList.remove("active");uploadScreen.style.display="flex";dropZone.style.display="flex";fileInput.value="";Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});chartInstances={}});
+
+let chartInstances={},rawData=null,allDates=[];
+
+function parseExcel(buf){const wb=XLSX.read(buf,{type:"array",cellDates:true});const data={mtd:XLSX.utils.sheet_to_json(wb.Sheets["MTD Claimables"]||{}),keywords:XLSX.utils.sheet_to_json(wb.Sheets["Keyword Targeting"]||{}),category:XLSX.utils.sheet_to_json(wb.Sheets["Category Targeting"]||{}),prodRec:XLSX.utils.sheet_to_json(wb.Sheets["Product Recommendation"]||{})};["keywords","category","prodRec"].forEach(key=>{data[key].forEach(row=>{if(row["date_ist"]){let d=row["date_ist"];if(d instanceof Date)d=d.toISOString().split("T")[0];else if(typeof d==="number"){d=new Date((d-25569)*86400000).toISOString().split("T")[0]}row["date_ist"]=String(d).substring(0,10)}})});return data}
+
+function handleFile(file){if(!file.name.match(/\.xlsx?$/i)){alert("Please upload an .xlsx file");return}dropZone.style.display="none";loading.classList.add("active");const reader=new FileReader();reader.onload=function(e){try{rawData=parseExcel(e.target.result);allDates=[...new Set(rawData.keywords.map(r=>r["date_ist"]).filter(Boolean))].sort();setupControls();rebuildDashboard();loading.classList.remove("active");uploadScreen.style.display="none";dashboardEl.classList.add("active")}catch(err){alert("Error: "+err.message);dropZone.style.display="flex";loading.classList.remove("active")}};reader.readAsArrayBuffer(file)}
+
+function setupControls(){["singleDate","rangeFrom","rangeTo","compareDate"].forEach(id=>{const sel=document.getElementById(id);sel.innerHTML="";allDates.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d;sel.appendChild(o)})});if(allDates.length>0){document.getElementById("singleDate").value=allDates[allDates.length-1];document.getElementById("rangeFrom").value=allDates[0];document.getElementById("rangeTo").value=allDates[allDates.length-1];document.getElementById("compareDate").value=allDates.length>1?allDates[allDates.length-2]:allDates[0]}}
+
+document.getElementById("dateMode").addEventListener("change",updateDateUI);
+document.getElementById("compareToggle").addEventListener("change",updateDateUI);
+function updateDateUI(){const mode=document.getElementById("dateMode").value;document.getElementById("singleDateGroup").style.display=mode==="single"?"flex":"none";document.getElementById("rangeFromGroup").style.display=mode==="range"?"flex":"none";document.getElementById("rangeToGroup").style.display=mode==="range"?"flex":"none";document.getElementById("compareDateGroup").style.display=(document.getElementById("compareToggle").checked&&mode==="single")?"flex":"none"}
+
+["dateMode","singleDate","rangeFrom","rangeTo","compareToggle","compareDate","searchTypeFilter"].forEach(id=>{document.getElementById(id).addEventListener("change",rebuildDashboard)});
+
+function getFilteredData(){const mode=document.getElementById("dateMode").value;const st=document.getElementById("searchTypeFilter").value;let fd;if(mode==="single")fd=d=>d===document.getElementById("singleDate").value;else if(mode==="range"){const f=document.getElementById("rangeFrom").value,t=document.getElementById("rangeTo").value;fd=d=>d>=f&&d<=t}else fd=()=>true;let fk;if(st==="branded")fk=r=>isBrand(r["Keyword"]);else if(st==="nonbranded")fk=r=>!isBrand(r["Keyword"]);else if(st==="competitor")fk=r=>getCampaignType(r["Campaign Name"])==="competitor";else if(st==="generic")fk=r=>getCampaignType(r["Campaign Name"])==="generic";else fk=()=>true;return{keywords:rawData.keywords.filter(r=>fd(r["date_ist"])&&fk(r)),category:rawData.category.filter(r=>fd(r["date_ist"])),prodRec:rawData.prodRec.filter(r=>fd(r["date_ist"])),mtd:rawData.mtd}}
+
+function getCompareData(){const mode=document.getElementById("dateMode").value;if(!document.getElementById("compareToggle").checked||mode!=="single")return null;const d=document.getElementById("compareDate").value;const st=document.getElementById("searchTypeFilter").value;let fk;if(st==="branded")fk=r=>isBrand(r["Keyword"]);else if(st==="nonbranded")fk=r=>!isBrand(r["Keyword"]);else if(st==="competitor")fk=r=>getCampaignType(r["Campaign Name"])==="competitor";else if(st==="generic")fk=r=>getCampaignType(r["Campaign Name"])==="generic";else fk=()=>true;return{keywords:rawData.keywords.filter(r=>r["date_ist"]===d&&fk(r)),category:rawData.category.filter(r=>r["date_ist"]===d),prodRec:rawData.prodRec.filter(r=>r["date_ist"]===d),mtd:rawData.mtd,date:d}}
+
+document.getElementById("tabBar").addEventListener("click",e=>{const tab=e.target.closest(".tab");if(!tab)return;document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));tab.classList.add("active");document.getElementById("tab-"+tab.dataset.tab).classList.add("active");if(tab.dataset.tab==="multiMonth")setTimeout(()=>buildMultiMonthTab(),50)});
+
+document.getElementById("modalClose").addEventListener("click",()=>document.getElementById("modalOverlay").classList.remove("active"));
+document.getElementById("modalOverlay").addEventListener("click",e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove("active")});
+
+function showCampaignDrilldown(cn){const data=getFilteredData();const kwR=data.keywords.filter(r=>r["Campaign Name"]===cn);const gr=groupBy(kwR,"Keyword");const kwD=Object.entries(gr).map(([kw,rows])=>{const a=enrichAgg(aggGroup(rows));const ap=rows.reduce((s,r)=>s+(r["Most Viewed Position"]||0),0)/rows.length;return{keyword:kw,avgPos:ap,...a}}).sort((a,b)=>b.spend-a.spend);const t=enrichAgg(aggGroup(kwR));
+document.getElementById("modalBody").innerHTML='<h3>'+cn.replace(/_/g," ")+'</h3><div class="kpi-strip cols-5" style="margin-bottom:16px"><div class="kpi-card"><div class="kpi-label">Keywords</div><div class="kpi-value">'+kwD.length+'</div></div><div class="kpi-card"><div class="kpi-label">Total Spend</div><div class="kpi-value">'+fmt.inr(t.spend)+'</div></div><div class="kpi-card"><div class="kpi-label">Direct ROAS</div><div class="kpi-value '+fmt.roasClass(t.directROAS)+'">'+fmt.roas(t.directROAS)+'</div></div><div class="kpi-card"><div class="kpi-label">Direct Sales</div><div class="kpi-value">'+fmt.inr(t.directSales)+'</div></div><div class="kpi-card"><div class="kpi-label">Sell Rate</div><div class="kpi-value">'+fmt.pct(t.sellRate)+'</div></div></div><div class="table-wrap">'+buildTable(["Keyword","Spend","Impr","Avg Pos","Dir ATC","Dir Qty","Sell Rate","Dir Sales","Dir ROAS","Tot ROAS","New Users"],kwD.map(r=>[r.keyword,fmt.inr(r.spend),fmt.num(r.impressions),fmt.dec1(r.avgPos),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.pct(r.sellRate),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},{v:fmt.roas(r.totalROAS),cls:fmt.roasClass(r.totalROAS)},fmt.num(r.newUsers)]),null,["TOTAL",fmt.inr(t.spend),fmt.num(t.impressions),"-",fmt.num(t.directATC),fmt.num(t.directQtySold),fmt.pct(t.sellRate),fmt.inr(t.directSales),fmt.roas(t.directROAS),fmt.roas(t.totalROAS),fmt.num(t.newUsers)])+'</div>';
+document.getElementById("modalOverlay").classList.add("active")}
+
+function kpiCard(label,vA,vB,fmtFn,colorFn){const fA=fmtFn?fmtFn(vA):vA;let cls=colorFn?colorFn(vA):"";let cmp="";if(vB!==undefined&&vB!==null){const fB=fmtFn?fmtFn(vB):vB;cmp='<div class="kpi-compare"><span class="a">A: '+fA+'</span><span class="b">B: '+fB+'</span>'+deltaHTML(vA,vB)+'</div>'}return'<div class="kpi-card"><div class="kpi-label">'+label+'</div><div class="kpi-value '+cls+'">'+fA+'</div>'+cmp+'</div>'}
+
+function rebuildDashboard(){if(!rawData)return;Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});chartInstances={};const data=getFilteredData();const cmp=getCompareData();const mode=document.getElementById("dateMode").value;let dl;if(mode==="single")dl=document.getElementById("singleDate").value;else if(mode==="range")dl=document.getElementById("rangeFrom").value+" \u2192 "+document.getElementById("rangeTo").value;else dl=allDates[0]+" \u2192 "+allDates[allDates.length-1];if(cmp)dl+=" vs "+cmp.date;document.getElementById("dateRange").textContent=dl;
+buildBrandSplitTab(data,cmp);buildCampaignsTab(data,cmp);buildKeywordsTab(data);buildNonBrandedTab(data);buildDailyTab(data);buildCategoryTab(data);buildProdRecTab(data);buildMVPTab();buildClaimablesTab(data);buildAlertsTab(data)}
+
+function buildBrandSplitTab(data,cmp){const bKW=data.keywords.filter(r=>isBrand(r["Keyword"]));const nbKW=data.keywords.filter(r=>!isBrand(r["Keyword"]));const b=enrichAgg(aggGroup(bKW));const nb=enrichAgg(aggGroup(nbKW));const t=enrichAgg(aggGroup(data.keywords));let ct=null;if(cmp)ct=enrichAgg(aggGroup(cmp.keywords));
+const c=document.getElementById("tab-brandSplit");c.innerHTML='<div class="kpi-strip cols-6">'+kpiCard("Total Spend",t.spend,ct?ct.spend:null,fmt.inr)+kpiCard("Direct Sales",t.directSales,ct?ct.directSales:null,fmt.inr)+kpiCard("Blended Direct ROAS",t.directROAS,ct?ct.directROAS:null,fmt.roas,v=>v>=2?"green":v>=1?"amber":"red")+kpiCard("Direct ATC",t.directATC,ct?ct.directATC:null,fmt.num)+kpiCard("Qty Sold",t.directQtySold,ct?ct.directQtySold:null,fmt.num)+kpiCard("Sell Rate",t.sellRate,ct?ct.sellRate:null,fmt.pct)+'</div><div class="brand-comparison"><div class="brand-card brand"><div class="brand-card-title">\u25cf Brand (Plush) \u2014 '+fmt.pct(safeDiv(b.spend,t.spend))+' of spend</div><div class="brand-metric-grid"><div class="brand-metric"><div class="brand-metric-label">Spend</div><div class="brand-metric-value">'+fmt.inr(b.spend)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Impressions</div><div class="brand-metric-value">'+fmt.num(b.impressions)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Direct ATC</div><div class="brand-metric-value">'+fmt.num(b.directATC)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Dir Qty Sold</div><div class="brand-metric-value">'+fmt.num(b.directQtySold)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Sell Rate</div><div class="brand-metric-value">'+fmt.pct(b.sellRate)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Direct Sales</div><div class="brand-metric-value">'+fmt.inr(b.directSales)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Direct ROAS</div><div class="brand-metric-value" style="color:var(--accent)">'+fmt.roas(b.directROAS)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Cost/ATC</div><div class="brand-metric-value">'+fmt.inrDec(b.costPerATC)+'</div></div><div class="brand-metric"><div class="brand-metric-label">% of Sales</div><div class="brand-metric-value">'+fmt.pct(safeDiv(b.directSales,t.directSales))+'</div></div></div></div><div class="brand-card nonbrand"><div class="brand-card-title">\u25cf Non-Brand \u2014 '+fmt.pct(safeDiv(nb.spend,t.spend))+' of spend</div><div class="brand-metric-grid"><div class="brand-metric"><div class="brand-metric-label">Spend</div><div class="brand-metric-value">'+fmt.inr(nb.spend)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Impressions</div><div class="brand-metric-value">'+fmt.num(nb.impressions)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Direct ATC</div><div class="brand-metric-value">'+fmt.num(nb.directATC)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Dir Qty Sold</div><div class="brand-metric-value">'+fmt.num(nb.directQtySold)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Sell Rate</div><div class="brand-metric-value">'+fmt.pct(nb.sellRate)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Direct Sales</div><div class="brand-metric-value">'+fmt.inr(nb.directSales)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Direct ROAS</div><div class="brand-metric-value" style="color:var(--non-brand-orange)">'+fmt.roas(nb.directROAS)+'</div></div><div class="brand-metric"><div class="brand-metric-label">Cost/ATC</div><div class="brand-metric-value">'+fmt.inrDec(nb.costPerATC)+'</div></div><div class="brand-metric"><div class="brand-metric-label">% of Sales</div><div class="brand-metric-value">'+fmt.pct(safeDiv(nb.directSales,t.directSales))+'</div></div></div></div></div><div class="chart-grid"><div class="chart-box"><div class="chart-title">Spend Split</div><canvas id="chartBrandSpend"></canvas></div><div class="chart-box"><div class="chart-title">Sales Split</div><canvas id="chartBrandSales"></canvas></div><div class="chart-box"><div class="chart-title">ROAS Comparison</div><canvas id="chartBrandROAS"></canvas></div><div class="chart-box"><div class="chart-title">Cost per ATC</div><canvas id="chartBrandCPA"></canvas></div></div><div class="section"><div class="section-title">Brand Keyword Detail</div><div class="table-wrap" id="brandKWTable"></div></div>';
+const dO={responsive:true,plugins:{legend:{labels:{color:"#7a7a9a",font:{family:"DM Sans",size:11}}}}};
+chartInstances.brandSpend=new Chart(document.getElementById("chartBrandSpend"),{type:"doughnut",data:{labels:["Brand","Non-Brand"],datasets:[{data:[b.spend,nb.spend],backgroundColor:["#00e6b8","#ff8844"],borderWidth:0}]},options:dO});
+chartInstances.brandSales=new Chart(document.getElementById("chartBrandSales"),{type:"doughnut",data:{labels:["Brand","Non-Brand"],datasets:[{data:[b.directSales,nb.directSales],backgroundColor:["#00e6b8","#ff8844"],borderWidth:0}]},options:dO});
+const bO={responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:"#7a7a9a"}},y:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"}}}};
+chartInstances.brandROAS=new Chart(document.getElementById("chartBrandROAS"),{type:"bar",data:{labels:["Brand","Non-Brand"],datasets:[{data:[b.directROAS,nb.directROAS],backgroundColor:["#00e6b8","#ff8844"],borderRadius:6}]},options:bO});
+chartInstances.brandCPA=new Chart(document.getElementById("chartBrandCPA"),{type:"bar",data:{labels:["Brand","Non-Brand"],datasets:[{data:[b.costPerATC,nb.costPerATC],backgroundColor:["#00e6b8","#ff8844"],borderRadius:6}]},options:bO});
+const bkg=groupBy(bKW,"Keyword");const bka=Object.entries(bkg).map(([kw,rows])=>({keyword:kw,...enrichAgg(aggGroup(rows))})).sort((a,b)=>b.spend-a.spend);
+document.getElementById("brandKWTable").innerHTML=buildTable(["Keyword","Spend","Impr","Dir ATC","Dir Qty","Sell Rate","Dir Sales","Dir ROAS"],bka.map(r=>[r.keyword,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.pct(r.sellRate),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)}]))}
+
+function buildCampaignsTab(data,cmp){const gr=groupBy(data.keywords,"Campaign Name");const cd=Object.entries(gr).map(([name,rows])=>({name,type:getCampaignType(name),...enrichAgg(aggGroup(rows))})).sort((a,b)=>b.spend-a.spend);const t=enrichAgg(aggGroup(data.keywords));let ct=null,cm={};if(cmp){ct=enrichAgg(aggGroup(cmp.keywords));Object.entries(groupBy(cmp.keywords,"Campaign Name")).forEach(([n,r])=>{cm[n]=enrichAgg(aggGroup(r))})}
+const c=document.getElementById("tab-campaigns");c.innerHTML='<div class="kpi-strip cols-5">'+kpiCard("Active Campaigns",cd.length,null,v=>v)+kpiCard("Total Spend",t.spend,ct?ct.spend:null,fmt.inr)+kpiCard("Blended ROAS",t.directROAS,ct?ct.directROAS:null,fmt.roas,v=>v>=2?"green":v>=1?"amber":"red")+kpiCard("ROAS \u2265 2x",cd.filter(x=>x.directROAS>=2).length,null,v=>v,()=>"green")+kpiCard("ROAS < 1x",cd.filter(x=>x.directROAS<1).length,null,v=>v,()=>"red")+'</div><div class="chart-grid"><div class="chart-box full"><div class="chart-title">Campaign ROAS \u2014 Direct (bar) vs Total (line)</div><canvas id="chartCampROAS"></canvas></div></div><div class="section"><div class="section-title">Campaign Performance \u2014 Click campaign name to drill into keywords</div><div class="table-wrap" id="campTable"></div></div>';
+const t15=cd.slice(0,15);chartInstances.campROAS=new Chart(document.getElementById("chartCampROAS"),{type:"bar",data:{labels:t15.map(x=>x.name.replace(/_/g," ")),datasets:[{label:"Direct ROAS",data:t15.map(x=>x.directROAS),backgroundColor:t15.map(x=>x.directROAS>=2?"#00e6b8":x.directROAS>=1?"#ffb020":"#ff3d5a"),borderRadius:4,order:2},{label:"Total ROAS",data:t15.map(x=>x.totalROAS),type:"line",borderColor:"#3388ff",pointBackgroundColor:"#3388ff",borderWidth:2,pointRadius:3,order:1}]},options:{responsive:true,plugins:{legend:{labels:{color:"#7a7a9a",font:{family:"DM Sans"}}}},scales:{x:{ticks:{color:"#7a7a9a",font:{size:9},maxRotation:45}},y:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"}}}}});
+const rows=cd.map(r=>{const cr=cm[r.name];return['<span class="clickable-camp" data-camp="'+r.name+'">'+r.name+"</span> "+getCampaignTag(r.name),fmt.inr(r.spend)+(cr?" "+deltaHTML(r.spend,cr.spend):""),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.inr(r.directSales)+(cr?" "+deltaHTML(r.directSales,cr.directSales):""),{v:fmt.roas(r.directROAS)+(cr?" "+deltaHTML(r.directROAS,cr.directROAS):""),cls:fmt.roasClass(r.directROAS)},{v:fmt.roas(r.totalROAS),cls:fmt.roasClass(r.totalROAS)},fmt.pct(r.sellRate),fmt.num(r.newUsers),fmt.inr(r.costPerATC)]});
+document.getElementById("campTable").innerHTML=buildTable(["Campaign","Spend","Impr","Dir ATC","Dir Qty","Dir Sales","Dir ROAS","Tot ROAS","Sell Rate","New Users","Cost/ATC"],rows,null,["TOTAL",fmt.inr(t.spend),fmt.num(t.impressions),fmt.num(t.directATC),fmt.num(t.directQtySold),fmt.inr(t.directSales),fmt.roas(t.directROAS),fmt.roas(t.totalROAS),fmt.pct(t.sellRate),fmt.num(t.newUsers),fmt.inr(t.costPerATC)],true);
+document.querySelectorAll("#campTable .clickable-camp").forEach(el=>{el.addEventListener("click",()=>showCampaignDrilldown(el.dataset.camp))})}
+
+function buildKeywordsTab(data){const gr=groupBy(data.keywords,"Keyword");const kd=Object.entries(gr).map(([kw,rows])=>({keyword:kw,isBrand:isBrand(kw),...enrichAgg(aggGroup(rows))})).sort((a,b)=>b.spend-a.spend);const t50=kd.slice(0,50);
+const c=document.getElementById("tab-keywords");c.innerHTML='<div class="kpi-strip cols-4">'+kpiCard("Total Keywords",kd.length,null,v=>v)+kpiCard("ROAS \u2265 2x",kd.filter(k=>k.directROAS>=2&&k.spend>100).length,null,v=>v,()=>"green")+kpiCard("ROAS < 1x (>\u20B91K)",kd.filter(k=>k.directROAS<1&&k.spend>1000).length,null,v=>v,()=>"red")+kpiCard("Zero-Sale (>\u20B9500)",kd.filter(k=>k.directSales===0&&k.spend>500).length,null,v=>v,()=>"red")+'</div><div class="section"><div class="section-title">Top 50 Keywords by Spend</div><div class="table-wrap" id="kwTable"></div></div><div class="section"><div class="section-title">Worst Performers \u2014 ROAS < 1x &amp; Spend > \u20B95K</div><div class="table-wrap" id="kwBleedTable"></div></div>';
+document.getElementById("kwTable").innerHTML=buildTable(["Keyword","Type","Spend","Impr","Dir ATC","Dir Qty","Sell Rate","Dir Sales","Dir ROAS"],t50.map(r=>[r.keyword,r.isBrand?'<span class="tag-brand">BRAND</span>':'<span class="tag-nonbrand">NON-BRAND</span>',fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.pct(r.sellRate),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)}]),null,null,true);
+const bl=kd.filter(k=>k.directROAS<1&&k.spend>5000).sort((a,b)=>b.spend-a.spend);document.getElementById("kwBleedTable").innerHTML=buildTable(["Keyword","Spend","Impr","Dir ATC","Dir Qty","Dir Sales","Dir ROAS","Wasted"],bl.map(r=>[r.keyword,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:"roas-bleed"},{v:fmt.inr(r.spend-r.directSales),cls:"roas-bleed"}]))}
+
+function buildNonBrandedTab(data){const nb=data.keywords.filter(r=>!isBrand(r["Keyword"]));const t=enrichAgg(aggGroup(nb));const bt={};nb.forEach(r=>{const tp=getCampaignType(r["Campaign Name"]);if(!bt[tp])bt[tp]=[];bt[tp].push(r)});const td=Object.entries(bt).map(([type,rows])=>({type,...enrichAgg(aggGroup(rows))})).sort((a,b)=>b.spend-a.spend);const gr=groupBy(nb,"Keyword");const kd=Object.entries(gr).map(([kw,rows])=>({keyword:kw,campaign:rows[0]["Campaign Name"],...enrichAgg(aggGroup(rows))})).sort((a,b)=>b.directROAS-a.directROAS);const tp=kd.filter(k=>k.spend>200&&k.directROAS>=1.5).slice(0,30);const wp=kd.filter(k=>k.spend>1000&&k.directROAS<1).sort((a,b)=>b.spend-a.spend).slice(0,30);
+const c=document.getElementById("tab-nonbranded");c.innerHTML='<div class="kpi-strip cols-6">'+kpiCard("Non-Brand KWs",kd.length,null,v=>v)+kpiCard("Total Spend",t.spend,null,fmt.inr)+kpiCard("Direct Sales",t.directSales,null,fmt.inr)+kpiCard("Direct ROAS",t.directROAS,null,fmt.roas,v=>v>=2?"green":v>=1?"amber":"red")+kpiCard("Sell Rate",t.sellRate,null,fmt.pct)+kpiCard("New Users",t.newUsers,null,fmt.num)+'</div><div class="section"><div class="section-title">Non-Brand by Strategy Type</div><div class="table-wrap" id="nbTypeTable"></div></div><div class="section"><div class="section-title">Top Non-Brand KWs (ROAS \u2265 1.5x, Spend > \u20B9200)</div><div class="table-wrap" id="nbTopTable"></div></div><div class="section"><div class="section-title">Non-Brand Bleeders (ROAS < 1x, Spend > \u20B91K)</div><div class="table-wrap" id="nbBleedTable"></div></div>';
+document.getElementById("nbTypeTable").innerHTML=buildTable(["Strategy","Spend","Impr","Dir ATC","Dir Qty","Dir Sales","Dir ROAS","Tot ROAS","Sell Rate","New Users"],td.map(r=>[getCampaignTag(r.type==="competitor"?"comp_":r.type==="generic"?"gen_":r.type==="mix"?"mix_":r.type+"_"),fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},{v:fmt.roas(r.totalROAS),cls:fmt.roasClass(r.totalROAS)},fmt.pct(r.sellRate),fmt.num(r.newUsers)]),null,null,true);
+document.getElementById("nbTopTable").innerHTML=buildTable(["Keyword","Campaign","Spend","Impr","Dir ATC","Dir Sales","Dir ROAS","Sell Rate"],tp.map(r=>[r.keyword,r.campaign,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},fmt.pct(r.sellRate)]));
+document.getElementById("nbBleedTable").innerHTML=buildTable(["Keyword","Campaign","Spend","Impr","Dir ATC","Dir Sales","Dir ROAS","Wasted"],wp.map(r=>[r.keyword,r.campaign,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:"roas-bleed"},{v:fmt.inr(r.spend-r.directSales),cls:"roas-bleed"}]))}
+
+function buildDailyTab(data){const gr=groupBy(data.keywords,"date_ist");const dd=Object.entries(gr).map(([d,rows])=>({date:d,...enrichAgg(aggGroup(rows))})).sort((a,b)=>a.date.localeCompare(b.date));const c=document.getElementById("tab-daily");c.innerHTML='<div class="chart-grid"><div class="chart-box full"><div class="chart-title">Daily Spend & Direct Sales</div><canvas id="chartDailySpend"></canvas></div><div class="chart-box"><div class="chart-title">Daily Direct ROAS</div><canvas id="chartDailyROAS"></canvas></div><div class="chart-box"><div class="chart-title">Daily New Users</div><canvas id="chartDailyUsers"></canvas></div></div><div class="section"><div class="section-title">Daily Breakdown</div><div class="table-wrap" id="dailyTable"></div></div>';
+const lb=dd.map(d=>d.date);chartInstances.dailySpend=new Chart(document.getElementById("chartDailySpend"),{type:"bar",data:{labels:lb,datasets:[{label:"Spend",data:dd.map(d=>d.spend),backgroundColor:"#1a2a44",borderRadius:3,order:2},{label:"Direct Sales",data:dd.map(d=>d.directSales),type:"line",borderColor:"#00e6b8",pointBackgroundColor:"#00e6b8",borderWidth:2,pointRadius:3,order:1}]},options:{responsive:true,plugins:{legend:{labels:{color:"#7a7a9a",font:{family:"DM Sans"}}}},scales:{x:{ticks:{color:"#7a7a9a",font:{size:9}}},y:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"}}}}});
+chartInstances.dailyROAS=new Chart(document.getElementById("chartDailyROAS"),{type:"line",data:{labels:lb,datasets:[{label:"Direct ROAS",data:dd.map(d=>d.directROAS),borderColor:"#ff3d5a",pointBackgroundColor:"#ff3d5a",borderWidth:2,pointRadius:3,fill:true,backgroundColor:"#ff3d5a15"}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:"#7a7a9a",font:{size:9}}},y:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"}}}}});
+chartInstances.dailyUsers=new Chart(document.getElementById("chartDailyUsers"),{type:"bar",data:{labels:lb,datasets:[{label:"New Users",data:dd.map(d=>d.newUsers),backgroundColor:"#3388ff",borderRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:"#7a7a9a",font:{size:9}}},y:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"}}}}});
+const t=enrichAgg(aggGroup(data.keywords));document.getElementById("dailyTable").innerHTML=buildTable(["Date","Spend","Impr","Dir ATC","Dir Qty","Sell Rate","Dir Sales","Dir ROAS","New Users"],dd.map(r=>[r.date,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.pct(r.sellRate),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},fmt.num(r.newUsers)]),null,["TOTAL",fmt.inr(t.spend),fmt.num(t.impressions),fmt.num(t.directATC),fmt.num(t.directQtySold),fmt.pct(t.sellRate),fmt.inr(t.directSales),fmt.roas(t.directROAS),fmt.num(t.newUsers)])}
+
+function buildCategoryTab(data){const t=enrichAgg(aggGroup(data.category));const gr=groupBy(data.category,"Category Name");const cd=Object.entries(gr).map(([n,rows])=>({name:n,...enrichAgg(aggGroup(rows))})).sort((a,b)=>b.spend-a.spend);const ccg=groupBy(data.category,r=>r["Campaign Name"]+"|||"+r["Category Name"]);const ccd=Object.entries(ccg).map(([k,rows])=>{const[camp,cat]=k.split("|||");return{campaign:camp,category:cat,...enrichAgg(aggGroup(rows)),avgPos:rows.reduce((s,r)=>s+(r["Most Viewed Position"]||0),0)/rows.length}}).sort((a,b)=>b.spend-a.spend);
+const c=document.getElementById("tab-category");c.innerHTML='<div class="kpi-strip cols-5">'+kpiCard("Total Spend",t.spend,null,fmt.inr)+kpiCard("Impressions",t.impressions,null,fmt.num)+kpiCard("Direct ATC",t.directATC,null,fmt.num)+kpiCard("Direct Sales",t.directSales,null,fmt.inr)+kpiCard("Direct ROAS",t.directROAS,null,fmt.roas,v=>v>=2?"green":v>=1?"amber":"red")+'</div><div class="section"><div class="section-title">By Category</div><div class="table-wrap" id="catTable"></div></div><div class="section"><div class="section-title">Campaign \u00d7 Category</div><div class="table-wrap" id="catDetailTable"></div></div>';
+document.getElementById("catTable").innerHTML=buildTable(["Category","Spend","Impr","Dir ATC","Dir Qty","Dir Sales","Indir Sales","Dir ROAS","Tot ROAS","Sell Rate"],cd.map(r=>[r.name,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.inr(r.directSales),fmt.inr(r.indirectSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},{v:fmt.roas(r.totalROAS),cls:fmt.roasClass(r.totalROAS)},fmt.pct(r.sellRate)]));
+document.getElementById("catDetailTable").innerHTML=buildTable(["Campaign","Category","Spend","Impr","Dir ATC","Dir Sales","Dir ROAS","Avg Pos","Sell Rate"],ccd.map(r=>[r.campaign,r.category,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},fmt.dec1(r.avgPos),fmt.pct(r.sellRate)]))}
+
+function buildProdRecTab(data){const t=enrichAgg(aggGroup(data.prodRec));const ag=groupBy(data.prodRec,"Asset");const ad=Object.entries(ag).map(([n,rows])=>({name:n,...enrichAgg(aggGroup(rows))})).sort((a,b)=>b.spend-a.spend);const cag=groupBy(data.prodRec,r=>r["Campaign Name"]+"|||"+r["Asset"]);const cad=Object.entries(cag).map(([k,rows])=>{const[camp,asset]=k.split("|||");return{campaign:camp,asset,...enrichAgg(aggGroup(rows))}}).sort((a,b)=>b.spend-a.spend);
+const c=document.getElementById("tab-prodRec");c.innerHTML='<div class="kpi-strip cols-5">'+kpiCard("Total Spend",t.spend,null,fmt.inr)+kpiCard("Impressions",t.impressions,null,fmt.num)+kpiCard("Direct ATC",t.directATC,null,fmt.num)+kpiCard("Direct ROAS",t.directROAS,null,fmt.roas,v=>v>=2?"green":v>=1?"amber":"red")+kpiCard("Total ROAS",t.totalROAS,null,fmt.roas,v=>v>=2?"green":v>=1?"amber":"red")+'</div><div class="section"><div class="section-title">By Placement Type</div><div class="table-wrap" id="prAssetTable"></div></div><div class="section"><div class="section-title">Campaign \u00d7 Placement</div><div class="table-wrap" id="prDetailTable"></div></div>';
+document.getElementById("prAssetTable").innerHTML=buildTable(["Placement","Spend","Impr","Dir ATC","Dir Qty","Dir Sales","Dir ROAS","Tot ROAS","Sell Rate"],ad.map(r=>[r.name,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},{v:fmt.roas(r.totalROAS),cls:fmt.roasClass(r.totalROAS)},fmt.pct(r.sellRate)]));
+document.getElementById("prDetailTable").innerHTML=buildTable(["Campaign","Placement","Spend","Impr","Dir ATC","Dir Qty","Dir Sales","Dir ROAS","Tot ROAS","Sell Rate"],cad.map(r=>[r.campaign,r.asset,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.num(r.directQtySold),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},{v:fmt.roas(r.totalROAS),cls:fmt.roasClass(r.totalROAS)},fmt.pct(r.sellRate)]))}
+
+function buildMVPTab(){const kw=rawData.keywords;const kg=groupBy(kw,"Keyword");const kmd=Object.entries(kg).map(([keyword,rows])=>{const ps=rows.filter(r=>r["Most Viewed Position"]&&r["Most Viewed Position"]>0).map(r=>r["Most Viewed Position"]);const ap=ps.length>0?ps.reduce((a,b)=>a+b,0)/ps.length:99;const da=new Set(rows.map(r=>r["date_ist"])).size;return{keyword,avgPos:ap,daysActive:da,...enrichAgg(aggGroup(rows))}});
+const p1=kmd.filter(k=>k.avgPos>=1&&k.avgPos<1.5),p2=kmd.filter(k=>k.avgPos>=1.5&&k.avgPos<2.5),p3=kmd.filter(k=>k.avgPos>=2.5&&k.avgPos<3.5),p4=kmd.filter(k=>k.avgPos>=3.5);
+function pb(arr){if(!arr.length)return{count:0,spend:0,directSales:0,directROAS:0,impressions:0,directATC:0,directQtySold:0,sellRate:0,avgCPM:0};const sp=arr.reduce((s,r)=>s+r.spend,0),im=arr.reduce((s,r)=>s+r.impressions,0),ds=arr.reduce((s,r)=>s+r.directSales,0),da=arr.reduce((s,r)=>s+r.directATC,0),dq=arr.reduce((s,r)=>s+r.directQtySold,0);return{count:arr.length,spend:sp,impressions:im,directSales:ds,directATC:da,directQtySold:dq,directROAS:safeDiv(ds,sp),sellRate:safeDiv(dq,da),avgCPM:safeDiv(sp,im)*1000}}
+const bk=[{label:"Position 1 (Avg)",data:pb(p1),items:p1},{label:"Position 2 (Avg)",data:pb(p2),items:p2},{label:"Position 3 (Avg)",data:pb(p3),items:p3},{label:"Position 4+ (Avg)",data:pb(p4),items:p4}];
+const cg=groupBy(kw,"Campaign Name");const cmd=Object.entries(cg).map(([name,rows])=>{const ps=rows.filter(r=>r["Most Viewed Position"]&&r["Most Viewed Position"]>0).map(r=>r["Most Viewed Position"]);const ap=ps.length>0?ps.reduce((a,b)=>a+b,0)/ps.length:99;const da=new Set(rows.map(r=>r["date_ist"])).size;return{name,avgPos:ap,daysActive:da,...enrichAgg(aggGroup(rows))}}).sort((a,b)=>a.avgPos-b.avgPos);
+const c=document.getElementById("tab-mvp");c.innerHTML='<div class="section"><div class="section-title">MVP Analysis \u2014 Average Position across all days (avoids single-day aberrations)</div></div><div class="kpi-strip cols-4">'+bk.map(b=>'<div class="kpi-card"><div class="kpi-label">'+b.label+'</div><div class="kpi-value">'+b.data.count+' kws</div><div class="kpi-sub">Spend: '+fmt.inr(b.data.spend)+' \u00b7 ROAS: '+fmt.roas(b.data.directROAS)+' \u00b7 CPM: '+fmt.inrDec(b.data.avgCPM)+'</div></div>').join("")+'</div><div class="chart-grid"><div class="chart-box"><div class="chart-title">ROAS by Avg Position</div><canvas id="chartMVPRoas"></canvas></div><div class="chart-box"><div class="chart-title">Spend by Avg Position</div><canvas id="chartMVPSpend"></canvas></div><div class="chart-box"><div class="chart-title">CPM by Avg Position</div><canvas id="chartMVPCPM"></canvas></div><div class="chart-box"><div class="chart-title">Sell Rate by Avg Position</div><canvas id="chartMVPSR"></canvas></div></div><div class="section"><div class="section-title">Top Keywords at Position 1 (Avg)</div><div class="table-wrap" id="mvpPos1Table"></div></div><div class="section"><div class="section-title">Campaign Avg Position Summary</div><div class="table-wrap" id="mvpCampTable"></div></div><div class="section"><div class="section-title">Position Efficiency \u2014 Is Position 1 worth the premium?</div><div class="table-wrap" id="mvpEffTable"></div></div>';
+const pl=bk.map(b=>b.label),pc=["#00e6b8","#ffb020","#3388ff","#7a7a9a"],bO={responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:"#7a7a9a",font:{size:10}}},y:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"}}}};
+chartInstances.mvpRoas=new Chart(document.getElementById("chartMVPRoas"),{type:"bar",data:{labels:pl,datasets:[{data:bk.map(b=>b.data.directROAS),backgroundColor:pc,borderRadius:6}]},options:bO});
+chartInstances.mvpSpend=new Chart(document.getElementById("chartMVPSpend"),{type:"bar",data:{labels:pl,datasets:[{data:bk.map(b=>b.data.spend),backgroundColor:pc,borderRadius:6}]},options:bO});
+chartInstances.mvpCPM=new Chart(document.getElementById("chartMVPCPM"),{type:"bar",data:{labels:pl,datasets:[{data:bk.map(b=>b.data.avgCPM),backgroundColor:pc,borderRadius:6}]},options:bO});
+chartInstances.mvpSR=new Chart(document.getElementById("chartMVPSR"),{type:"bar",data:{labels:pl,datasets:[{data:bk.map(b=>b.data.sellRate*100),backgroundColor:pc,borderRadius:6}]},options:bO});
+document.getElementById("mvpPos1Table").innerHTML=buildTable(["Keyword","Avg Pos","Days","Spend","Impr","Dir ATC","Dir Sales","Dir ROAS","Sell Rate","CPM"],p1.sort((a,b)=>b.spend-a.spend).slice(0,30).map(r=>[r.keyword,fmt.dec1(r.avgPos),r.daysActive,fmt.inr(r.spend),fmt.num(r.impressions),fmt.num(r.directATC),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},fmt.pct(r.sellRate),fmt.inrDec(r.cpm)]));
+document.getElementById("mvpCampTable").innerHTML=buildTable(["Campaign","Avg Pos","Days","Spend","Impr","Dir Sales","Dir ROAS","CPM","Sell Rate"],cmd.map(r=>[r.name,fmt.dec1(r.avgPos),r.daysActive,fmt.inr(r.spend),fmt.num(r.impressions),fmt.inr(r.directSales),{v:fmt.roas(r.directROAS),cls:fmt.roasClass(r.directROAS)},fmt.inrDec(r.cpm),fmt.pct(r.sellRate)]));
+document.getElementById("mvpEffTable").innerHTML=buildTable(["Position","Keywords","Spend","Dir Sales","ROAS","Sell Rate","CPM","Cost/ATC","Sales/KW"],bk.map(b=>[b.label,b.data.count,fmt.inr(b.data.spend),fmt.inr(b.data.directSales),{v:fmt.roas(b.data.directROAS),cls:fmt.roasClass(b.data.directROAS)},fmt.pct(b.data.sellRate),fmt.inrDec(b.data.avgCPM),fmt.inr(safeDiv(b.data.spend,b.data.directATC)),fmt.inr(safeDiv(b.data.directSales,b.data.count))]))}
+
+function buildClaimablesTab(data){const mtd=data.mtd;const tb=mtd.reduce((s,r)=>s+(r["Total Budget"]||0),0),tc=mtd.reduce((s,r)=>s+(r["Claimables"]||0),0),ti=mtd.reduce((s,r)=>s+(r["Impressions"]||0),0),ut=safeDiv(tc,tb),ec=safeDiv(tc,ti)*1000;
+const tg=groupBy(mtd,"Campaign Type");const td=Object.entries(tg).map(([type,rows])=>{const b=rows.reduce((s,r)=>s+(r["Total Budget"]||0),0),c=rows.reduce((s,r)=>s+(r["Claimables"]||0),0),i=rows.reduce((s,r)=>s+(r["Impressions"]||0),0);return{type,budget:b,claimables:c,impressions:i,util:safeDiv(c,b),ecpm:safeDiv(c,i)*1000}});const sorted=[...mtd].sort((a,b)=>(b["Claimables"]||0)-(a["Claimables"]||0));
+const c=document.getElementById("tab-claimables");c.innerHTML='<div class="kpi-strip cols-5">'+kpiCard("Total Budget",tb,null,fmt.inr)+kpiCard("Total Claimables",tc,null,fmt.inr)+kpiCard("Utilization",ut,null,fmt.pct,v=>v>=0.7?"green":v>=0.5?"amber":"red")+kpiCard("Total Impressions",ti,null,fmt.num)+kpiCard("Avg eCPM",ec,null,fmt.inrDec)+'</div><div class="chart-grid"><div class="chart-box"><div class="chart-title">Budget vs Claimables by Type</div><canvas id="chartClaimType"></canvas></div><div class="chart-box"><div class="chart-title">Utilization by Campaign</div><canvas id="chartClaimUtil"></canvas></div></div><div class="section"><div class="section-title">By Campaign Type</div><div class="table-wrap" id="claimTypeTable"></div></div><div class="section"><div class="section-title">Campaign Level</div><div class="table-wrap" id="claimCampTable"></div></div>';
+chartInstances.claimType=new Chart(document.getElementById("chartClaimType"),{type:"bar",data:{labels:td.map(t=>t.type),datasets:[{label:"Budget",data:td.map(t=>t.budget),backgroundColor:"#1a2a44",borderRadius:4},{label:"Claimables",data:td.map(t=>t.claimables),backgroundColor:"#00e6b8",borderRadius:4}]},options:{responsive:true,plugins:{legend:{labels:{color:"#7a7a9a",font:{family:"DM Sans"}}}},scales:{x:{ticks:{color:"#7a7a9a"}},y:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"}}}}});
+const t10=sorted.slice(0,10);chartInstances.claimUtil=new Chart(document.getElementById("chartClaimUtil"),{type:"bar",data:{labels:t10.map(r=>(r["Campaign Name"]||"").replace(/"/g,"").replace(/_/g," ")),datasets:[{label:"Util %",data:t10.map(r=>safeDiv(r["Claimables"],r["Total Budget"])*100),backgroundColor:t10.map(r=>safeDiv(r["Claimables"],r["Total Budget"])>=0.7?"#00e6b8":safeDiv(r["Claimables"],r["Total Budget"])>=0.5?"#ffb020":"#ff3d5a"),borderRadius:4}]},options:{indexAxis:"y",responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"},max:100},y:{ticks:{color:"#7a7a9a",font:{size:9}}}}}});
+document.getElementById("claimTypeTable").innerHTML=buildTable(["Type","Budget","Claimables","Utilization","Impressions","eCPM"],td.map(r=>[r.type,fmt.inr(r.budget),fmt.inr(r.claimables),fmt.pct(r.util),fmt.num(r.impressions),fmt.inrDec(r.ecpm)]));
+document.getElementById("claimCampTable").innerHTML=buildTable(["Campaign","Type","Budget","Claimables","Utilization","Impressions","eCPM"],sorted.map(r=>{const cl=r["Claimables"]||0,bu=r["Total Budget"]||0,imp=r["Impressions"]||0;return[(r["Campaign Name"]||"").replace(/"/g,""),r["Campaign Type"],fmt.inr(bu),fmt.inr(cl),fmt.pct(safeDiv(cl,bu)),fmt.num(imp),fmt.inrDec(safeDiv(cl,imp)*1000)]}))}
+
+function buildAlertsTab(data){const kg=groupBy(data.keywords,"Keyword");const kd=Object.entries(kg).map(([kw,rows])=>({keyword:kw,isBrand:isBrand(kw),...enrichAgg(aggGroup(rows))}));const ki=kd.filter(k=>k.directROAS<0.8&&k.spend>10000&&!k.isBrand).sort((a,b)=>b.spend-a.spend).slice(0,6);const sc=kd.filter(k=>k.directROAS>=3&&k.spend>500).sort((a,b)=>b.directROAS-a.directROAS).slice(0,6);const zr=kd.filter(k=>k.directSales===0&&k.spend>500).sort((a,b)=>b.spend-a.spend).slice(0,4);const cg=groupBy(data.keywords,"Campaign Name");const cd=Object.entries(cg).map(([n,rows])=>({name:n,...enrichAgg(aggGroup(rows))}));const bl=cd.filter(c=>c.directROAS<1&&c.spend>10000).sort((a,b)=>a.directROAS-b.directROAS).slice(0,4);
+const c=document.getElementById("tab-alerts");c.innerHTML='<div class="section"><div class="section-title">\ud83d\udd34 Kill \u2014 Negative ROI Keywords (Spend > \u20b910K, ROAS < 0.8x)</div><div class="alert-grid">'+ki.map(k=>'<div class="alert-card kill"><div class="alert-type">KILL</div><div class="alert-title">"'+k.keyword+'"</div><div class="alert-metric">Spend: '+fmt.inr(k.spend)+' \u2192 Sales: '+fmt.inr(k.directSales)+' \u2192 ROAS: '+fmt.roas(k.directROAS)+'</div><div class="alert-detail">Wasted: '+fmt.inr(k.spend-k.directSales)+'. Sell rate '+fmt.pct(k.sellRate)+'.</div></div>').join("")+'</div></div><div class="section"><div class="section-title">\ud83d\udfe2 Scale \u2014 High ROAS Keywords (ROAS \u2265 3x)</div><div class="alert-grid">'+sc.map(k=>'<div class="alert-card scale"><div class="alert-type">SCALE</div><div class="alert-title">"'+k.keyword+'" '+(k.isBrand?'<span class="tag-brand">BRAND</span>':"")+'</div><div class="alert-metric">Spend: '+fmt.inr(k.spend)+' \u2192 Sales: '+fmt.inr(k.directSales)+' \u2192 ROAS: '+fmt.roas(k.directROAS)+'</div><div class="alert-detail">Sell rate '+fmt.pct(k.sellRate)+'. Headroom for budget increase.</div></div>').join("")+'</div></div><div class="section"><div class="section-title">\ud83d\udfe1 Watch \u2014 Underperforming Campaigns (ROAS < 1x, Spend > \u20b910K)</div><div class="alert-grid">'+bl.map(x=>'<div class="alert-card watch"><div class="alert-type">WATCH</div><div class="alert-title">'+x.name.replace(/_/g," ")+'</div><div class="alert-metric">Spend: '+fmt.inr(x.spend)+' \u2192 ROAS: '+fmt.roas(x.directROAS)+' (Total: '+fmt.roas(x.totalROAS)+')</div><div class="alert-detail">Direct sales '+fmt.inr(x.directSales)+', '+fmt.num(x.newUsers)+' new users.</div></div>').join("")+'</div></div><div class="section"><div class="section-title">\u26ab Dead \u2014 Zero Sales Keywords (Spend > \u20b9500)</div><div class="alert-grid">'+zr.map(k=>'<div class="alert-card kill"><div class="alert-type">PAUSE NOW</div><div class="alert-title">"'+k.keyword+'"</div><div class="alert-metric">Spend: '+fmt.inr(k.spend)+' \u2192 Sales: \u20b90 \u2192 ATCs: '+fmt.num(k.directATC)+'</div><div class="alert-detail">Pure drain. Zero conversions despite '+fmt.num(k.impressions)+' impressions.</div></div>').join("")+'</div></div>'}
+
+// === MULTI-MONTH ===
+let monthFiles=[null,null,null,null],monthData=[null,null,null,null],monthLabels=["","","",""];
+function buildMultiMonthTab(){const c=document.getElementById("tab-multiMonth");c.innerHTML='<div class="section"><div class="section-title">Multi-Month Comparison \u2014 Upload 2 to 4 monthly reports</div><p style="color:var(--text-muted);font-size:12px;margin-bottom:16px">Upload separate .xlsx files for each month. Comparison appears once 2+ months are loaded.</p></div><div class="month-upload-area" id="monthSlots">'+[0,1,2,3].map(i=>monthData[i]?'<div class="month-slot filled" data-idx="'+i+'"><div class="slot-label">Month '+(i+1)+'</div><div class="slot-file">'+monthLabels[i]+'</div><div class="slot-remove" data-idx="'+i+'">\u2715 Remove</div></div>':'<div class="month-slot" data-idx="'+i+'"><div class="slot-icon">\ud83d\udcc1</div><div class="slot-label">Month '+(i+1)+' \u2014 Click to upload</div><div style="font-size:10px;color:var(--text-dim)">.xlsx</div></div>').join("")+'</div><input type="file" id="monthFileInput" accept=".xlsx,.xls" style="display:none"><div id="monthCompareResults"></div>';
+document.querySelectorAll(".month-slot:not(.filled)").forEach(el=>{el.addEventListener("click",()=>{const idx=parseInt(el.dataset.idx);const inp=document.getElementById("monthFileInput");inp.dataset.idx=idx;inp.click()})});
+document.querySelectorAll(".slot-remove").forEach(el=>{el.addEventListener("click",e=>{e.stopPropagation();const idx=parseInt(el.dataset.idx);monthData[idx]=null;monthLabels[idx]="";buildMultiMonthTab()})});
+document.getElementById("monthFileInput").addEventListener("change",e=>{const file=e.target.files[0];if(!file)return;const idx=parseInt(e.target.dataset.idx);const reader=new FileReader();reader.onload=function(ev){try{const data=parseExcel(ev.target.result);monthData[idx]=data;const dates=data.keywords.map(r=>r["date_ist"]).filter(Boolean).sort();monthLabels[idx]=dates.length>0?new Date(dates[0]).toLocaleString("en-US",{month:"long",year:"numeric"}):file.name;buildMultiMonthTab();renderMonthComparison()}catch(err){alert("Error: "+err.message)}};reader.readAsArrayBuffer(file);e.target.value=""});
+if(monthData.filter(Boolean).length>=2)renderMonthComparison()}
+
+function renderMonthComparison(){const res=document.getElementById("monthCompareResults");if(!res)return;const ld=[];monthData.forEach((d,i)=>{if(d)ld.push({idx:i,label:monthLabels[i],data:d})});if(ld.length<2){res.innerHTML='<p style="color:var(--text-muted);font-size:12px;padding:20px">Upload at least 2 months to compare.</p>';return}
+const ma=ld.map(m=>{const kw=enrichAgg(aggGroup(m.data.keywords)),cat=enrichAgg(aggGroup(m.data.category)),pr=enrichAgg(aggGroup(m.data.prodRec)),days=new Set(m.data.keywords.map(r=>r["date_ist"])).size;return{label:m.label,kw,cat,pr,days}});
+["monthSpend","monthROAS","monthSales","monthCPM"].forEach(k=>{if(chartInstances[k])try{chartInstances[k].destroy()}catch(e){}});
+const mLabels=ma.map(m=>m.label),mc=["#00e6b8","#9966ff","#3388ff","#ffb020"].slice(0,ld.length);
+res.innerHTML='<div class="section"><div class="section-title">Month-over-Month Comparison</div></div><div class="kpi-strip cols-'+ld.length+'">'+ma.map(m=>'<div class="kpi-card"><div class="kpi-label">'+m.label+' ('+m.days+' days)</div><div class="kpi-value">'+fmt.inr(m.kw.spend)+'</div><div class="kpi-sub">ROAS: '+fmt.roas(m.kw.directROAS)+' \u00b7 Sales: '+fmt.inr(m.kw.directSales)+'</div></div>').join("")+'</div><div class="chart-grid"><div class="chart-box"><div class="chart-title">Spend by Month</div><canvas id="chartMonthSpend"></canvas></div><div class="chart-box"><div class="chart-title">Direct ROAS by Month</div><canvas id="chartMonthROAS"></canvas></div><div class="chart-box"><div class="chart-title">Direct Sales by Month</div><canvas id="chartMonthSales"></canvas></div><div class="chart-box"><div class="chart-title">CPM by Month</div><canvas id="chartMonthCPM"></canvas></div></div><div class="section"><div class="section-title">Keyword Targeting \u2014 Month Comparison</div><div class="table-wrap" id="monthKWTable"></div></div><div class="section"><div class="section-title">Category Targeting \u2014 Month Comparison</div><div class="table-wrap" id="monthCatTable"></div></div><div class="section"><div class="section-title">Product Reco \u2014 Month Comparison</div><div class="table-wrap" id="monthPRTable"></div></div>';
+const bO={responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:"#7a7a9a"}},y:{ticks:{color:"#7a7a9a"},grid:{color:"#22223a"}}}};
+chartInstances.monthSpend=new Chart(document.getElementById("chartMonthSpend"),{type:"bar",data:{labels:mLabels,datasets:[{data:ma.map(m=>m.kw.spend),backgroundColor:mc,borderRadius:6}]},options:bO});
+chartInstances.monthROAS=new Chart(document.getElementById("chartMonthROAS"),{type:"bar",data:{labels:mLabels,datasets:[{data:ma.map(m=>m.kw.directROAS),backgroundColor:mc,borderRadius:6}]},options:bO});
+chartInstances.monthSales=new Chart(document.getElementById("chartMonthSales"),{type:"bar",data:{labels:mLabels,datasets:[{data:ma.map(m=>m.kw.directSales),backgroundColor:mc,borderRadius:6}]},options:bO});
+chartInstances.monthCPM=new Chart(document.getElementById("chartMonthCPM"),{type:"bar",data:{labels:mLabels,datasets:[{data:ma.map(m=>m.kw.cpm),backgroundColor:mc,borderRadius:6}]},options:bO});
+const metrics=["Spend","Impressions","Direct ATC","Dir Qty Sold","Direct Sales","Indirect Sales","Direct ROAS","Total ROAS","Sell Rate","New Users","CPM","Cost/ATC"];
+function metricRow(m,a){const map={"Spend":fmt.inr(a.spend),"Impressions":fmt.num(a.impressions),"Direct ATC":fmt.num(a.directATC),"Dir Qty Sold":fmt.num(a.directQtySold),"Direct Sales":fmt.inr(a.directSales),"Indirect Sales":fmt.inr(a.indirectSales),"Direct ROAS":fmt.roas(a.directROAS),"Total ROAS":fmt.roas(a.totalROAS),"Sell Rate":fmt.pct(a.sellRate),"New Users":fmt.num(a.newUsers),"CPM":fmt.inrDec(a.cpm),"Cost/ATC":fmt.inr(a.costPerATC)};return map[m]||"-"}
+document.getElementById("monthKWTable").innerHTML=buildTable(["Metric",...mLabels],metrics.map(m=>[m,...ma.map(x=>metricRow(m,x.kw))]));
+document.getElementById("monthCatTable").innerHTML=buildTable(["Metric",...mLabels],metrics.map(m=>[m,...ma.map(x=>metricRow(m,x.cat))]));
+document.getElementById("monthPRTable").innerHTML=buildTable(["Metric",...mLabels],metrics.map(m=>[m,...ma.map(x=>metricRow(m,x.pr))]))}
+</script>
+</body>
+</html>
